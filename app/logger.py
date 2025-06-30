@@ -34,9 +34,9 @@ setattr(logging.Logger, "napcat", _logger_napcat)
 
 
 class Logger:
-    def __init__(self, logs_dir="logs", level="INFO"):
+    def __init__(self, logs_dir="logs", console_level="INFO"):
         self.root_logger = logging.getLogger()
-        self.level = level
+        self.console_level = console_level  # 重命名为更明确的含义
 
         # 获取日志目录
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -54,8 +54,8 @@ class Logger:
         # 创建控制台和文件处理器
         console_handler, file_handler = self._create_handlers()
 
-        # 设置根日志记录器的级别和处理器
-        self.root_logger.setLevel(self.level)
+        # 设置根日志记录器的级别为DEBUG（最低级别，确保所有日志都能被记录）
+        self.root_logger.setLevel(logging.DEBUG)
         self.root_logger.addHandler(console_handler)
         self.root_logger.addHandler(file_handler)
 
@@ -81,7 +81,7 @@ class Logger:
             "NAPCAT": "bold_blue",  # 接收NapCatQQ的消息日志（加粗蓝色）
         }
 
-        # 创建控制台处理器
+        # 创建控制台处理器 - 使用console_level
         console_handler = colorlog.StreamHandler()
         console_handler.setFormatter(
             colorlog.ColoredFormatter(
@@ -90,7 +90,7 @@ class Logger:
                 log_colors=log_colors,
             )
         )
-        console_handler.setLevel(self.level)
+        console_handler.setLevel(self.console_level)  # 使用实例变量
 
         # 创建文件处理器
         # 创建 logs 目录
@@ -112,18 +112,22 @@ class Logger:
             )
         )
 
-        # 修改namer函数，轮转时以当前时间命名新日志文件，格式为 YYYY-MM-DD_HH-MM-SS.log
+        # 自定义轮转逻辑：新文件以轮转时的时间命名
         def custom_namer(name):
-
-            # 获取东八区当前时间
+            # 不使用默认的 .1, .2 后缀，而是生成新的时间戳文件名
+            # 获取东八区当前时间（轮转时的时间）
             tz = timezone(timedelta(hours=8))
             timestamp = datetime.now(tz).strftime("%Y-%m-%d_%H-%M-%S")
             base_dir = os.path.dirname(name)
             return os.path.join(base_dir, f"{timestamp}.log")
 
+        def custom_rotator(source, dest):
+            # 将当前日志文件重命名为带时间戳的文件名
+            os.rename(source, dest)
+
         file_handler.namer = custom_namer
-        file_handler.rotator = lambda source, dest: os.rename(source, dest)
-        file_handler.setLevel(self.level)
+        file_handler.rotator = custom_rotator
+        file_handler.setLevel(logging.DEBUG)  # 文件始终记录DEBUG及以上级别
 
         return console_handler, file_handler
 
@@ -149,12 +153,17 @@ class Logger:
     def napcat(self, message):
         logging.log(NAPCAT, message)
 
-    def set_level(self, level):
-        """动态设置日志级别"""
-        self.level = level
-        self.root_logger.setLevel(level)
+    def set_console_level(self, level):
+        """动态设置控制台日志级别"""
+        self.console_level = level
+        # 只更新控制台处理器的级别，文件处理器保持DEBUG
         for handler in self.root_logger.handlers:
-            handler.setLevel(level)
+            if isinstance(handler, colorlog.StreamHandler):
+                handler.setLevel(level)
+
+    def set_level(self, level):
+        """为了向后兼容保留的方法，实际调用set_console_level"""
+        self.set_console_level(level)
 
 
 # 创建一个全局日志器实例
@@ -216,5 +225,5 @@ if __name__ == "__main__":
     logger.debug("修改级别后可以看到的调试日志")
 
     # 4. 创建自定义日志实例
-    custom_logger = Logger(logs_dir="custom_logs", level="INFO")
+    custom_logger = Logger(logs_dir="custom_logs", console_level="INFO")
     custom_logger.info("这是来自自定义日志器的消息")

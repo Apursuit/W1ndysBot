@@ -6,7 +6,7 @@ import importlib
 import inspect
 from config import OWNER_ID
 from api.message import send_private_msg
-from api.generate import generate_text_message
+from utils.generate import generate_text_message
 
 
 # 核心模块列表 - 这些模块将始终被加载
@@ -48,7 +48,7 @@ class EventHandler:
     async def _report_loading_status(self):
         """向管理员上报模块加载状况"""
         # 生成成功加载的模块报告
-        success_msg = "模块加载成功：" + "\n".join(self.loaded_modules)
+        success_msg = "模块加载成功：\n" + "\n".join(self.loaded_modules)
 
         # 生成失败加载的模块报告
         failed_msg = "模块加载失败：\n"

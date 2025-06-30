@@ -7,12 +7,16 @@ import logger
 async def send_group_msg_with_cq(websocket, group_id, content, note=""):
     """
     发送群消息，使用旧的消息格式（cq码）
-    如需自动撤回，请在note参数中添加“del_msg=秒数”
+    如需自动撤回，请在note参数中添加"del_msg=秒数"
     如：del_msg=10
     则note参数为：del_msg=10
     https://napcat.apifox.cn/226799128e0
     """
     try:
+        # 删除消息最后的换行符
+        if isinstance(content, str):
+            content = content.rstrip("\n\r")
+
         payload = {
             "action": "send_group_msg",
             "params": {"group_id": group_id, "message": content},
@@ -28,12 +32,16 @@ async def send_group_msg_with_cq(websocket, group_id, content, note=""):
 async def send_private_msg_with_cq(websocket, user_id, content, note=""):
     """
     发送私聊消息，使用旧的消息格式（cq码）
-    如需自动撤回，请在note参数中添加“del_msg=秒数”
+    如需自动撤回，请在note参数中添加"del_msg=秒数"
     如：del_msg=10
     则note参数为：del_msg=10
     https://napcat.apifox.cn/226799128e0
     """
     try:
+        # 删除消息最后的换行符
+        if isinstance(content, str):
+            content = content.rstrip("\n\r")
+
         payload = {
             "action": "send_private_msg",
             "params": {"user_id": user_id, "message": content},
@@ -48,15 +56,37 @@ async def send_private_msg_with_cq(websocket, user_id, content, note=""):
 async def send_group_msg(websocket, group_id, message, note=""):
     """
     发送群聊消息，使用新的消息格式（消息段）
-    {
-        "type": "text",
-        "data": {"text": "消息内容"}
-    }
-    消息段可使用generate模块的函数生成
-    如需自动撤回，请在note参数中添加“del_msg=秒数”
-    如：del_msg=10
-    则note参数为：del_msg=10
-    https://napcat.apifox.cn/226799128e0
+
+    Args:
+        websocket: WebSocket连接对象，用于与onebot通信
+        group_id (int): 目标群号
+        message (str|dict|list): 消息内容，支持以下格式：
+            - str: 纯文本消息，会自动转换为消息段格式
+            - dict: 单个消息段对象，格式如 {"type": "text", "data": {"text": "消息内容"}}
+            - list: 消息段列表，包含多个消息段对象
+        note (str, optional): 附加说明，支持以下功能：
+            - "del_msg=秒数": 自动撤回消息，如 "del_msg=10" 表示10秒后撤回
+
+    Returns:
+        None
+
+    Raises:
+        Exception: 发送消息失败时抛出异常
+
+    Examples:
+        # 发送纯文本消息
+        await send_group_msg(websocket, 123456789, "Hello World")
+
+        # 发送消息段
+        await send_group_msg(websocket, 123456789, [{"type": "text", "data": {"text": "Hello"}}])
+
+        # 发送带撤回的消息
+        await send_group_msg(websocket, 123456789, "Hello", "del_msg=30")
+
+    Note:
+        消息段可使用generate模块的函数生成，如generate_text_message()、generate_at_message()等
+        函数会自动处理消息格式转换和换行符清理
+        参考文档：https://napcat.apifox.cn/226799128e0
     """
     try:
         # 检查message是否为字符串，如果是则转换为列表格式
@@ -66,6 +96,22 @@ async def send_group_msg(websocket, group_id, message, note=""):
             message = [message]
         elif not isinstance(message, list):
             message = [{"type": "text", "data": {"text": str(message)}}]
+
+        # 处理最后一条消息的换行符
+        if message and len(message) > 0:
+            last_msg = message[-1]
+            if (
+                last_msg.get("type") == "text"
+                and "data" in last_msg
+                and "text" in last_msg["data"]
+            ):
+                text_content = last_msg["data"]["text"]
+                # 如果最后一条消息的文本内容纯换行，则删掉整条消息
+                if text_content.strip() == "":
+                    message.pop()
+                else:
+                    # 如果不是纯换行，则删掉末尾的换行符
+                    last_msg["data"]["text"] = text_content.rstrip("\n\r")
 
         message_data = {
             "action": "send_group_msg",
@@ -89,7 +135,7 @@ async def send_private_msg(websocket, user_id, message, note=""):
         "data": {"text": "消息内容"}
     }
     消息段可使用generate模块的函数生成
-    如需自动撤回，请在note参数中添加“del_msg=秒数”
+    如需自动撤回，请在note参数中添加"del_msg=秒数"
     如：del_msg=10
     则note参数为：del_msg=10
     https://napcat.apifox.cn/226799128e0
@@ -102,6 +148,22 @@ async def send_private_msg(websocket, user_id, message, note=""):
             message = [message]
         elif not isinstance(message, list):
             message = [{"type": "text", "data": {"text": str(message)}}]
+
+        # 处理最后一条消息的换行符
+        if message and len(message) > 0:
+            last_msg = message[-1]
+            if (
+                last_msg.get("type") == "text"
+                and "data" in last_msg
+                and "text" in last_msg["data"]
+            ):
+                text_content = last_msg["data"]["text"]
+                # 如果最后一条消息的文本内容纯换行，则删掉整条消息
+                if text_content.strip() == "":
+                    message.pop()
+                else:
+                    # 如果不是纯换行，则删掉末尾的换行符
+                    last_msg["data"]["text"] = text_content.rstrip("\n\r")
 
         message_data = {
             "action": "send_private_msg",
@@ -174,15 +236,27 @@ async def delete_msg(websocket, message_id):
         logger.error(f"[API]执行撤回消息失败: {e}")
 
 
-async def get_msg(websocket, message_id):
+async def get_msg(websocket, message_id, note=""):
     """
     获取消息详情
+
+    参数:
+        websocket: WebSocket连接对象，用于发送消息
+        message_id: str 消息ID
+        note: str 备注，可选，用于在响应中标识请求的字段，默认空字符串
+
+    返回:
+        无返回值，通过websocket发送请求
+
+    说明:
+        由于websocket的特殊性，无法一对一获取响应信息
+        需要在echo字段中添加标识信息，以便在处理响应时进行匹配
     """
     try:
         payload = {
             "action": "get_msg",
             "params": {"message_id": message_id},
-            "echo": "get_msg",
+            "echo": f"get_msg-{note}",
         }
         await websocket.send(json.dumps(payload))
         logger.info(f"[API]已执行获取消息详情")
@@ -238,11 +312,20 @@ async def get_file(websocket, file_id):
         logger.error(f"[API]执行获取文件消息失败: {e}")
 
 
-async def get_group_msg_history(
-    websocket, group_id, user_id, count, message_seq=0, note=""
-):
+async def get_group_msg_history(websocket, group_id, count=20, message_seq=0, note=""):
     """
     获取群历史消息
+    https://napcat.apifox.cn/226657401e0
+
+    Args:
+        websocket: WebSocket连接对象
+        group_id: 群号
+        count: 获取消息数量，默认20，在payload中可以不填
+        message_seq: 起始消息序号，默认为0
+        note: 备注信息，默认为空字符串
+
+    Returns:
+        None: 该函数通过websocket发送请求，不直接返回结果
     """
     try:
         payload = {
@@ -251,9 +334,9 @@ async def get_group_msg_history(
                 "group_id": group_id,
                 "message_seq": message_seq,
                 "count": count,
-                "reverseOrder": True,
+                "reverseOrder": True,  # 是否倒序
             },
-            "echo": f"get_group_msg_history-{group_id}-{user_id}-{note}",
+            "echo": f"get_group_msg_history-{group_id}-{note}",
         }
         await websocket.send(json.dumps(payload))
         logger.info(f"[API]已执行获取群历史消息")

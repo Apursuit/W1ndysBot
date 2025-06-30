@@ -2,7 +2,7 @@ import importlib
 import os
 import logger
 from typing import Dict, List, Optional
-from api.generate import generate_reply_message, generate_text_message
+from utils.generate import generate_reply_message, generate_text_message
 from api.message import send_group_msg, send_private_msg
 from core.auth import is_system_admin
 
@@ -69,7 +69,9 @@ class MenuManager:
                 menu_text += f"【{menu_info['name']}】：{menu_info['description']}\n"
                 menu_text += f"开关: {menu_info['switch_name']}\n"
                 menu_text += "\n"
-        menu_text += "发送开关命令+menu，可以查看该模块的所有子命令"
+        menu_text += "发送开关命令+menu，可以查看该模块的所有子命令\n"
+        menu_text += "框架作者：http://github.com/W1ndys\n"
+        menu_text += "卷卷的交流小窝：489237389\n"
         return menu_text
 
 
